@@ -10,11 +10,10 @@ boolToNum x
 
 solve::[Int] -> Int
 solve list =
-    sum (map boolToNum (zipWith isGrowing list tailed))
-    where tailed = tail list
+    sum $ map boolToNum $ zipWith isGrowing list $ tail list
 
 main::IO ()
 main = do 
-    print (solve testData)
+    print $ solve testData
 
    

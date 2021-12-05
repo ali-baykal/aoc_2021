@@ -78,10 +78,14 @@ isVertical line =
 filterLines :: [Line] -> [Line]
 filterLines = filter (\l -> isHorizontal l || isVertical l)
 
+makeRange :: Int -> Int -> [Int]
+makeRange x y 
+    | x > y = [x, (x-1)..y]
+    | otherwise = [x..y]
 
 expandLine :: Line -> [Coordinate]
 expandLine line =
-    rollingZip [minX..maxX] [minY..maxY]
+    rollingZip xRange yRange
     where
         from = fst line
         to = snd line
@@ -89,10 +93,8 @@ expandLine line =
         fromY = snd from
         toX = fst to
         toY = snd to
-        minX = minimum [fromX, toX]
-        maxX = maximum [fromX, toX]
-        minY = minimum [fromY, toY]
-        maxY = maximum [fromY, toY]
+        xRange = makeRange fromX toX
+        yRange = makeRange fromY toY
 
 initialField :: Field
 initialField =  M.empty 

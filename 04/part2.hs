@@ -1,4 +1,4 @@
-import Data.Set(fromList, isSubsetOf, difference, toList)
+import Data.Set(Set, fromList, isSubsetOf, difference, toList, filter, map)
 import Data.Tuple (fst, snd)
 import Data.List (sort)
 
@@ -22,9 +22,9 @@ convertToInt :: String -> Int
 convertToInt str =  read str::Int
 
 convertToIntList :: String -> [Int]
-convertToIntList =  map convertToInt . words . replaceWith ' ' ','
+convertToIntList =  Prelude.map convertToInt . words . replaceWith ' ' ','
 
-splitIntoBoards :: [Int] -> [Board]
+splitIntoBoards :: [Int] ->[Board]
 splitIntoBoards [] = []
 splitIntoBoards list = take boardSize list : splitIntoBoards (drop boardSize list)
 
@@ -47,21 +47,24 @@ hasBoardWon :: [Int] -> Board -> Bool
 hasBoardWon numbers board = 
     any (hasWon numbers) rowsAndColumns
     where 
-        columns = map (getColumn board) [0..(boardWith - 1)] 
-        rows = map (getRow board) [0..(boardHeight - 1)]
+        columns = Prelude.map (getColumn board) [0..(boardWith - 1)] 
+        rows = Prelude.map (getRow board) [0..(boardHeight - 1)]
         rowsAndColumns = columns ++ rows
 
-getWiningBoards :: [Int] -> [Board] -> [Board]
-getWiningBoards numbers = filter (hasBoardWon numbers)
+getWiningBoards :: [Int] -> Set Board -> Set Board
+getWiningBoards numbers = Data.Set.filter (hasBoardWon numbers)
 
-play :: Round -> [Int] -> [Board] -> [Board] -> ([Int], [Board])
-play round allNumbers boardList previousWinnigBoards
+playInReverse :: Round -> [Int] -> Set Board -> [Int] -> Set Board -> ([Int], Set Board)
+playInReverse round allNumbers boardSet previousNumbers previousWinningBoards
     | round < 0 = error "no result"
-    | length winingBoards < length previousWinnigBoards = (take (round + 1) allNumbers, toList  $ difference (fromList previousWinnigBoards) (fromList winingBoards)) 
-    | otherwise = play (round - 1) allNumbers boardList winingBoards
+    | not (winningBoards == previousWinningBoards) = (previousNumbers, difference previousWinningBoards winningBoards) 
+    | otherwise = playInReverse (round - 1) allNumbers boardSet drawnNumbers winningBoards
     where 
         drawnNumbers = take round allNumbers
-        winingBoards = getWiningBoards drawnNumbers boardList
+        winningBoards = getWiningBoards drawnNumbers boardSet
+
+play :: [Int] -> Set Board -> ([Int], Set Board)
+play numbers boards = playInReverse (length numbers - 1) numbers boards numbers (getWiningBoards numbers boards)
 
 calcScore :: [Int] -> Board -> Int 
 calcScore numbers board = 
@@ -76,11 +79,9 @@ main = do
     fileContent <- readFile "./input"
     let w = words fileContent
     let numbers = convertToIntList $ head w
-    let boards = splitIntoBoards $ map convertToInt $ tail w
-    let playResult = play (length numbers - 1) numbers boards (getWiningBoards numbers boards)
-    let lastWinning =  playResult
-    let drawnNumbers = fst lastWinning
-    let winningBoards = snd lastWinning
-    let scores = map (calcScore drawnNumbers) winningBoards
-    print playResult
+    let boards = fromList $ splitIntoBoards $ Prelude.map convertToInt $ tail w
+    let playResult = play numbers boards 
+    let drawnNumbers = fst playResult
+    let winningBoards = snd playResult
+    let scores = Data.Set.map (calcScore drawnNumbers) winningBoards
     print $ maximum scores

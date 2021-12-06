@@ -1,9 +1,13 @@
 type Population = [Int];
+type Input = [Int];
 
-testData :: [Int]
--- testData = [3,4,3,1,2]
-testData = [5,1,2,1,5,3,1,1,1,1,1,2,5,4,1,1,1,1,2,1,2,1,1,1,1,1,2,1,5,1,1,1,3,1,1,1,3,1,1,3,1,1,4,3,1,1,4,1,1,1,1,2,1,1,1,5,1,1,5,1,1,1,4,4,2,5,1,1,5,1,1,2,2,1,2,1,1,5,3,1,2,1,1,3,1,4,3,3,1,1,3,1,5,1,1,3,1,1,4,4,1,1,1,5,1,1,1,4,4,1,3,1,4,1,1,4,5,1,1,1,4,3,1,4,1,1,4,4,3,5,1,2,2,1,2,2,1,1,1,2,1,1,1,4,1,1,3,1,1,2,1,4,1,1,1,1,1,1,1,1,2,2,1,1,5,5,1,1,1,5,1,1,1,1,5,1,3,2,1,1,5,2,3,1,2,2,2,5,1,1,3,1,1,1,5,1,4,1,1,1,3,2,1,3,3,1,3,1,1,1,1,1,1,1,2,3,1,5,1,4,1,3,5,1,1,1,2,2,1,1,1,1,5,4,1,1,3,1,2,4,2,1,1,3,5,1,1,1,3,1,1,1,5,1,1,1,1,1,3,1,1,1,4,1,1,1,1,2,2,1,1,1,1,5,3,1,2,3,4,1,1,5,1,2,4,2,1,1,1,2,1,1,1,1,1,1,1,4,1,5]
--- testData = [6,0,6,4,5,6,0,1,1,2,6,0,1,1,1,2,2,3,3,4,6,7,8,8,8,8]
+-- stack overflow answer to how to split a string
+wordsWhen :: (Char -> Bool) -> String -> [String]
+wordsWhen p s =  case dropWhile p s of
+                      "" -> []
+                      s' -> w : wordsWhen p s''
+                            where (w, s'') = break p s'
+
 
 transformInitialData' :: Population -> Int -> Population
 transformInitialData' population timer = 
@@ -17,7 +21,7 @@ transformInitialData' population timer =
 transformInitialData :: [Int] -> Population
 transformInitialData  = foldl transformInitialData' (replicate 9 0)
 
-simulate:: Int ->Population -> Population
+simulate:: Int -> Population -> Population
 simulate 0 population = population
 simulate days population = 
     simulate (days - 1) nextGen
@@ -28,3 +32,15 @@ simulate days population =
         t = drop 6 populationWithCreated
         withTimer6 = (head t) + created
         nextGen = h ++ (withTimer6 : (tail t))
+
+
+solve :: Input -> Int
+solve = sum . simulate 256 . transformInitialData
+
+parseInput :: String -> [Int]
+parseInput = map (\str -> read str::Int) . wordsWhen (==',')
+
+main :: IO ()
+main = do
+    fileContent <- readFile "./input"
+    (print . solve. parseInput) fileContent

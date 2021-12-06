@@ -14,7 +14,7 @@ wordsWhen p s =  case dropWhile p s of
 transformInitialData' :: Population -> Int -> Population
 transformInitialData' population timer =
      population A.// [(timer, incremented)]
-     where 
+     where
          current = population A.! timer
          incremented = current + 1
 
@@ -25,16 +25,17 @@ rotate population = A.listArray (0, 8) (tail values ++ [head values])
 transformInitialData :: [Int] -> Population
 transformInitialData  = foldl transformInitialData' (A.listArray (0, 8) (repeat 0))
 
-simulate:: Int -> Population -> Population
-simulate 0 population = population
-simulate days population =
-    simulate (days - 1) nextGen
+transitionPopulation :: Population -> Population
+transitionPopulation population =
+    populationWithCreated A.// [(6, createCount + withTimer6)]
     where
         createCount = population A.! 0
         populationWithCreated = rotate population
         withTimer6 = populationWithCreated A.! 6
-        nextGen = populationWithCreated A.// [(6, createCount + withTimer6)]
 
+simulate:: Int -> Population -> Population
+simulate 0 = id
+simulate days = (!! max 0 days) . iterate transitionPopulation
 
 solve :: Input -> Int
 solve = sum . simulate 256 . transformInitialData

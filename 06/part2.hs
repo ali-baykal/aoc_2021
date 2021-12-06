@@ -1,4 +1,6 @@
-type Population = [Int];
+import qualified Data.Array as A;
+
+type Population = A.Array Int Int;
 type Input = [Int];
 
 -- stack overflow answer to how to split a string
@@ -10,28 +12,28 @@ wordsWhen p s =  case dropWhile p s of
 
 
 transformInitialData' :: Population -> Int -> Population
-transformInitialData' population timer = 
-     h ++ (timerCount : (tail t))
-            where
-                splitPopulation = splitAt timer population
-                h = fst splitPopulation
-                t = snd splitPopulation
-                timerCount = (+1) $ head t
+transformInitialData' population timer =
+     population A.// [(timer, incremented)]
+     where 
+         current = population A.! timer
+         incremented = current + 1
+
+rotate :: Population -> Population
+rotate population = A.listArray (0, 8) (tail values ++ [head values])
+    where values = A.elems population
 
 transformInitialData :: [Int] -> Population
-transformInitialData  = foldl transformInitialData' (replicate 9 0)
+transformInitialData  = foldl transformInitialData' (A.listArray (0, 8) (repeat 0))
 
 simulate:: Int -> Population -> Population
 simulate 0 population = population
-simulate days population = 
+simulate days population =
     simulate (days - 1) nextGen
     where
-        created = head population 
-        populationWithCreated = (tail population) ++ [created]
-        h = take 6 populationWithCreated
-        t = drop 6 populationWithCreated
-        withTimer6 = (head t) + created
-        nextGen = h ++ (withTimer6 : (tail t))
+        createCount = population A.! 0
+        populationWithCreated = rotate population
+        withTimer6 = populationWithCreated A.! 6
+        nextGen = populationWithCreated A.// [(6, createCount + withTimer6)]
 
 
 solve :: Input -> Int

@@ -4,6 +4,7 @@ import Data.Set (Set, empty, insert, fromList, fromAscList, size, toList, member
 import Data.Map (Map, fromList, (!))
 import qualified Data.List as L
 import Data.Maybe (isJust, fromJust)
+import Control.Parallel (par)
 
 data Segment = A | B | C | D | E | F | G
  deriving (Eq, Ord, Show)
@@ -47,6 +48,12 @@ tuple2 list
     | length list == 2 = (head list, list !! 1)
     | otherwise = error "Only works with a list of two elements"
 
+
+-- taken from http://book.realworldhaskell.org/read/concurrent-and-multicore-programming.html
+parallelMap :: (a -> b) -> [a] -> [b]
+parallelMap f (x:xs) = let r = f x
+                       in r `par` r : parallelMap f xs
+parallelMap _ _      = []
 
 allSegments = [A, B, C, D, E, F, G];
 
@@ -182,7 +189,7 @@ solvePart2 :: [Configuration] -> [Display] -> Int
 solvePart2 configurationList display =
     sum [x*(10^n) | (x,n) <- zip reversed [0..3]]
     where
-        summedDigits = sumLists . map (solvePart2' configurationList) $ display
+        summedDigits = sumLists . parallelMap (solvePart2' configurationList) $ display
         reversed = reverse summedDigits
 
 

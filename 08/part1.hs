@@ -1,7 +1,7 @@
 import qualified Data.Text as T
 import Data.Array (Array, listArray, elems)
-import Data.Set (Set, empty, insert, fromList, fromAscList, size, toList, member)
-import Data.Map (Map, fromList, (!))
+import Data.Set (Set, empty, insert, fromList, fromAscList, size, toList, member, intersection, difference)
+import Data.Map (Map, fromList, (!), empty, insert)
 import qualified Data.List as L
 import Data.Maybe (isJust, fromJust)
 import Control.Parallel (par)
@@ -9,8 +9,9 @@ import qualified Data.IntMap as M
 
 data Segment = A | B | C | D | E | F | G deriving (Eq, Ord, Show)
 
-data SegmentPostion = Top | Middle | Bottom | TopLeft | TopRight | BottomLeft | BottomRight deriving (Eq, Ord, Show)
-type Configuration = Map SegmentPostion Segment
+data SegmentPosition = Top | Middle | Bottom | TopLeft | TopRight | BottomLeft | BottomRight deriving (Eq, Ord, Show)
+type Possibilities = Map SegmentPosition (Set Segment)
+type Configuration = Map SegmentPosition Segment
 
 type SignalPattern = Set Segment
 type InputValues = Array Int SignalPattern
@@ -56,21 +57,21 @@ parallelMap f (x:xs) = let r = f x
 parallelMap _ _      = []
 
 allSegments = [A, B, C, D, E, F, G];
+allPositions = [Top, TopLeft, TopRight, Middle, BottomLeft, BottomRight, Bottom]
+allSegmentsSet = Data.Set.fromList allSegments
+allPosibilities :: Possibilities
+allPosibilities = Data.Map.fromList $ zip allPositions (repeat allSegmentsSet)
 
-allConfigurations :: [Configuration]
-allConfigurations = map (Data.Map.fromList . zip [Top, TopLeft, TopRight, Middle, BottomLeft, BottomRight, Bottom]) $ L.permutations allSegments
-
-
-setCharInSignal :: Char -> SignalPattern -> SignalPattern
-setCharInSignal c = insert segment
+deduceSegmentsarInSignal :: Char -> SignalPattern -> SignalPattern
+deduceSegmentsarInSignal c = Data.Set.insert segment
     where segment = mapCharToSegment c
 
 convertToSignalPattern :: String -> SignalPattern
 convertToSignalPattern chars_ =
-    rec chars_ empty
+    rec chars_ Data.Set.empty
     where
         rec [] p = p
-        rec chars pattern  = rec (tail chars) (setCharInSignal (head chars) pattern)
+        rec chars pattern  = rec (tail chars) (deduceSegmentsarInSignal (head chars) pattern)
 
 convertSingle :: ([T.Text], [T.Text]) -> Display
 convertSingle ioTuple = (inputArray, outputArray)
@@ -100,7 +101,7 @@ isRepresenting4 = signalPatternHasLength (Data.Set.size _4)
 isRepresenting7 = signalPatternHasLength (Data.Set.size _7)
 isRepresenting8 = signalPatternHasLength (Data.Set.size _8)
 
-isNum :: Set SegmentPostion -> Configuration -> SignalPattern -> Bool
+isNum :: Set SegmentPosition -> Configuration -> SignalPattern -> Bool
 isNum positions configuration pattern =
  size positions == size pattern && all (\position -> Data.Set.member (configuration ! position) pattern) positions
 
@@ -135,6 +136,62 @@ isRelevantForPart1 = Main.or [isRepresenting1, isRepresenting4, isRepresenting7,
 solvePart1 :: [Display] -> Int
 solvePart1 = length . concatMap (filter isRelevantForPart1 . elems . snd)
 
+deductPossibilities :: [SignalPattern] -> Possibilities -> Possibilities
+deductPossibilities [] p = p
+deductPossibilities patterns possibilities
+    | isRepresenting1 currentPattern = deductNextStep . calcDeducedPosibilities _1 $ possibilities
+    | isRepresenting4 currentPattern = deductNextStep . calcDeducedPosibilities _4 $ possibilities
+    | isRepresenting7 currentPattern = deductNextStep . calcDeducedPosibilities _7 $ possibilities
+    | otherwise = deductNextStep possibilities
+    where
+        currentPattern = head patterns
+        deductNextStep = deductPossibilities (tail patterns)
+        calcDeducedPosibilities :: Set SegmentPosition -> Possibilities -> Possibilities
+        calcDeducedPosibilities num possibilities = newPosibilities
+            where
+                createDeductionFunc :: (Set Segment -> Set Segment -> Set Segment) -> SegmentPosition -> Possibilities -> Set Segment
+                createDeductionFunc deduceSegments position possibilities = deduceSegments (possibilities ! position) currentPattern
+                getDeductionFunc :: SegmentPosition -> (Possibilities -> Set Segment)
+                getDeductionFunc position
+                    | member position num = createDeductionFunc intersection position
+                    | otherwise = createDeductionFunc difference position
+                deductPosibilitiesForPostion :: Possibilities -> SegmentPosition -> Possibilities
+                deductPosibilitiesForPostion possibilities position = Data.Map.insert position (getDeductionFunc position possibilities) possibilities
+                newPosibilities = foldl deductPosibilitiesForPostion possibilities allPositions
+                
+getPossibleConfigurrations :: Possibilities -> [Configuration]
+getPossibleConfigurrations possibilities = [
+    Data.Map.fromList [(Top, t), (TopRight, tr), (TopLeft, tl), (Middle, m), (BottomRight, br), (BottomLeft, bl), (Bottom, b)] |
+    t <-  getPossibilities Top,
+    tr <- getPossibilities TopRight,
+    tl <- getPossibilities TopLeft,
+    m <- getPossibilities Middle,
+    br <- getPossibilities BottomRight,
+    bl <- getPossibilities BottomLeft,
+    b <- getPossibilities Bottom,
+    t /= tr,
+    t /= tl,
+    t /= m,
+    t /= br,
+    t /= bl,
+    t /= b,
+    tr /= tl,
+    tr /= m,
+    tr /= br,
+    tr /= bl,
+    tr /= b,
+    tl /= m,
+    tl /= br,
+    tl /= bl,
+    tl /= b,
+    m /= br,
+    m /= bl,
+    m /= b,
+    br /= bl,
+    br /= b,
+    bl /= b]
+    where getPossibilities position = Data.Set.toList $ possibilities ! position
+
 resolveDisplay  :: [Configuration] -> [SignalPattern] -> [Int]
 resolveDisplay [] _ = []
 resolveDisplay configurations display
@@ -145,24 +202,24 @@ resolveDisplay configurations display
         maybeIntList = map (getNum currentConf) display
 
 
-solvePart2' :: [Configuration] -> Display -> [Int]
-solvePart2' configurations display =
+solvePart2' :: Display -> [Int]
+solvePart2' display =
     drop 10 $ resolveDisplay configurations patterns
     where
         inputPatterns = elems $ fst display
         outputPatterns = elems $ snd display
         patterns = inputPatterns ++ outputPatterns
+        configurations = getPossibleConfigurrations $ deductPossibilities patterns allPosibilities
 
 sumLists :: [[Int]] -> [Int]
 sumLists = foldl (zipWith (+)) [0,0,0,0]
 
-solvePart2 :: [Configuration] -> [Display] -> Int
-solvePart2 configurationList display =
-    sum [x*(10^n) | (x,n) <- zip reversed [0..3]]
+solvePart2 :: [Display] -> Int
+solvePart2 display =
+    sum [x*10^n | (x,n) <- zip reversed [0..3]]
     where
-        summedDigits = sumLists . parallelMap (solvePart2' configurationList) $ display
+        summedDigits = sumLists . parallelMap solvePart2' $ display
         reversed = reverse summedDigits
 
-
 main::IO ()
-main =  readFile "./input" >>= print . solvePart2 allConfigurations . convertInput . parseFile . T.pack
+main =  readFile "./input" >>= print . solvePart2 . convertInput . parseFile . T.pack

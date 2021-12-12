@@ -5,12 +5,12 @@ import Data.Map (Map, fromList, (!))
 import qualified Data.List as L
 import Data.Maybe (isJust, fromJust)
 import Control.Parallel (par)
+import qualified Data.IntMap as M
 
-data Segment = A | B | C | D | E | F | G
- deriving (Eq, Ord, Show)
+data Segment = A | B | C | D | E | F | G deriving (Eq, Ord, Show)
 
 data SegmentPostion = Top | Middle | Bottom | TopLeft | TopRight | BottomLeft | BottomRight deriving (Eq, Ord, Show)
-type Configuration = Map Segment SegmentPostion
+type Configuration = Map SegmentPostion Segment
 
 type SignalPattern = Set Segment
 type InputValues = Array Int SignalPattern
@@ -58,37 +58,8 @@ parallelMap _ _      = []
 allSegments = [A, B, C, D, E, F, G];
 
 allConfigurations :: [Configuration]
-allConfigurations  = [Data.Map.fromList
-   [(t, Top), (tl, TopLeft), (tr, TopRight), (m, Middle),
-    (bl, BottomLeft), (br, BottomRight), (b, Bottom)] |
-   t <- allSegments,
-   tl <- allSegments,
-   t /= tl,
-   tr <- allSegments,
-   t /= tr,
-   m <- allSegments,
-   t /= m,
-   bl <- allSegments,
-   t /= bl,
-   br <- allSegments,
-   t /= br,
-   b <- allSegments,
-   t /= b,
-   tl /= tr,
-   tl /= m,
-   tl /= bl,
-   tl /= br,
-   tl /= b,
-   tr /= m,
-   tr /= bl,
-   tr /= br,
-   tr /= b,
-   m /= bl,
-   m /= br,
-   m /= b,
-   bl /= br,
-   bl /= b,
-   br /= b]
+allConfigurations = map (Data.Map.fromList . zip [Top, TopLeft, TopRight, Middle, BottomLeft, BottomRight, Bottom]) $ L.permutations allSegments
+
 
 setCharInSignal :: Char -> SignalPattern -> SignalPattern
 setCharInSignal c = insert segment
@@ -131,7 +102,7 @@ isRepresenting8 = signalPatternHasLength (Data.Set.size _8)
 
 isNum :: Set SegmentPostion -> Configuration -> SignalPattern -> Bool
 isNum positions configuration pattern =
- size positions == size pattern && all (\segment -> Data.Set.member (configuration ! segment) positions) pattern
+ size positions == size pattern && all (\position -> Data.Set.member (configuration ! position) pattern) positions
 
 is0 = isNum _0
 is1 = isNum _1
@@ -184,7 +155,7 @@ solvePart2' configurations display =
 
 sumLists :: [[Int]] -> [Int]
 sumLists = foldl (zipWith (+)) [0,0,0,0]
-            
+
 solvePart2 :: [Configuration] -> [Display] -> Int
 solvePart2 configurationList display =
     sum [x*(10^n) | (x,n) <- zip reversed [0..3]]
